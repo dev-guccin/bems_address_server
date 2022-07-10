@@ -7,7 +7,7 @@ let config = {
   },
   bacnetconfig: {
     port: 47808, //bacnet의 기본 주소
-    interface: "192.168.219.100", // 현재 서버의 로컬 ip
+    interface: "192.168.219.102", // 현재 서버의 로컬 ip
     broadcastAddress: "192.168.219.255",
     apduTimeout: 10000,
   },
