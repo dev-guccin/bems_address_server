@@ -1,0 +1,27 @@
+{
+  "name": "modbusserver",
+  "version": "1.0.0",
+  "description": "",
+  "main": "bacnet_server.js",
+  "dependencies": {
+    "jsmodbus": "^4.0.6",
+    "modbus-serial": "^8.0.5",
+    "mysql": "^2.18.1",
+    "net": "^1.0.2",
+    "node-bacnet": "^0.2.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dev-Guccin/bems_address_server.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Dev-Guccin/bems_address_server/issues"
+  },
+  "homepage": "https://github.com/Dev-Guccin/bems_address_server#readme"
+}
