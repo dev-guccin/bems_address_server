@@ -1,29 +1,48 @@
+"use strict";
 // create an empty modbus client
 const ModbusRTU = require("modbus-serial");
-const DBH = require("./database")
+const DBH = require("./database");
 
 const vector = {
   getInputRegister: function (addr, unitID) {
     // Synchronous handling
     return addr;
   },
-  getHoldingRegister: function (addr, unitID, callback) { // getMultipleHoldingRegisters보다 처리가 후순위라 같이 사용하면 안뜨는듯
+  getHoldingRegister: async function (addr, unitID, callback) {
+    // getMultipleHoldingRegisters보다 처리가 후순위라 같이 사용하면 안뜨는듯
     console.log("getHoldingRegister");
-
-    // item = DBH.getValueByAddress(addr)
-    // callback(null, item.value)
-
-    callback(null, addr);
+    let item;
+    try {
+      const items = await DBH.getValueByAddress(addr);
+      item = items[0];
+    } catch (err) {
+      console.log("server 에러");
+      console.log(err);
+      callback(null, 0);
+      return;
+    }
+    console.log(item);
+    console.log(item.log_value);
+    callback(null, item.log_value);
   },
-  getMultipleHoldingRegisters: function (addr, length, unitID, callback) {
+  getMultipleHoldingRegisters: async function (addr, length, unitID, callback) {
     console.log("getMultipleHoldingRegisters");
     console.log("address:" + addr); // 'address 기준으로 DB에서 데이터를 꺼내서 반환해준다.
     console.log("unitID:" + unitID);
     // callback(null, addr);
-    let values = Array(length).fill(1);
+    let values = Array(length).fill(0);
 
-    // get data by address 
-    // item = DBH.getValuesByAddress(addr, length)
+    // get data by address
+    try {
+      const items = await DBH.getValuesByAddress(addr, length);
+      console.log(items);
+      for (let i = 0; i < length; i++) {
+        values[i] = items[i].log_value;
+      }
+    } catch (err) {
+      console.log("server 에러");
+      console.log(err);
+    }
 
     // callback(null, )
     callback(null, values);
