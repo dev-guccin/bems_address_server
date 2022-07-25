@@ -53,7 +53,7 @@ var Database = {
   getValuesByAddress: function (address, length) {
     // address type is integer
     return new Promise(function (resolve, reject) {
-      // 데이터가 비어있는 경우 어떻게 받을 것인가???
+      // 데이터 타입이 16이 아니고 32bit인 경우 어떻게 반환할건가?
       connection.query(
         `select * from realtime_table where ${address} <= address and address < ${
           address + length
@@ -66,10 +66,12 @@ var Database = {
               throw new Error("어드레스가 잘못되었습니다. address:" + address);
             }
             // 값을 받았는데 값의 개수가 length만큼이 아니다?
-            if (rows.length != length) {
+            if (rows.length * 2 != length) {
               throw new Error(
-                "어드레스에 누락된 값이 존재합니다. length를 수정하거나 엑셀을 확인하세요. address:" +
-                  address
+                "어드레스와 length 사이에 누락된 주소값이 존재합니다. length를 수정하거나 엑셀을 확인하세요. address:" +
+                  address +
+                  " 길이:" +
+                  length
               );
             }
           } catch (err) {

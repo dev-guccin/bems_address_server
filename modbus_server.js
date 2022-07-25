@@ -1,102 +1,117 @@
-const net = require("net");
-const modbus = require("jsmodbus");
-const netServer = new net.Server(); // 소켓 서버를 생성한다.
-const holding = Buffer.alloc(10000); // 버퍼 사이즈를 지정한다.
+"use strict";
+// create an empty modbus client
+const ModbusRTU = require("modbus-serial");
+const DBH = require("./database");
 
-const DBH = require('./database');
-const { dbconfig } = require("./config");
+const vector = {
+  getInputRegister: function (addr, unitID) {
+    // Synchronous handling
+    return addr;
+  },
+  getHoldingRegister: async function (addr, unitID, callback) {
+    // getMultipleHoldingRegisters보다 처리가 후순위라 같이 사용하면 안뜨는듯
+    console.log("getHoldingRegister");
+    let item;
+    try {
+      const items = await DBH.getValueByAddress(addr);
+      item = items[0];
+    } catch (err) {
+      console.log("server 에러");
+      console.log(err);
+      callback(null, 0);
+      return;
+    }
+    console.log(item);
+    // item의 log_value가 값이 너무 큰경우
+    console.log(item.log_value);
+    // callback(null, item.log_value);
+    // callback(null, ["0x0a0a"]);
+    callback(null, item.log_value);
+  },
+  getMultipleHoldingRegisters: async function (addr, length, unitID, callback) {
+    console.log("getMultipleHoldingRegisters");
+    console.log("address:" + addr); // 'address 기준으로 DB에서 데이터를 꺼내서 반환해준다.
+    console.log("unitID:" + unitID);
+    // callback(null, addr);
+    let arr = new ArrayBuffer(length * 2);
+    const view = new DataView(arr);
 
-const server = new modbus.server.TCP(netServer, {
-  holding: holding,
+    // get data by address
+    try {
+      const items = await DBH.getValuesByAddress(addr, length);
+      let bufferIndex = 0;
+      for (let i = 0; i < items.length; i++) {
+        // values[i] = items[i].log_value;
+        console.log("index :" + bufferIndex);
+        // 데이터를 Float32형태로 배열에 적용한다.
+        view.setFloat32(bufferIndex, items[i].log_value, false);
+        bufferIndex += 4;
+      }
+    } catch (err) {
+      console.log("server 에러");
+      console.log(err);
+    }
+
+    const final16 = arrayBufferToUint16Array(arr);
+
+    callback(null, final16);
+  },
+  getCoil: function (addr, unitID) {
+    // Asynchronous handling (with Promises, async/await supported)
+    return new Promise(function (resolve) {
+      setTimeout(function () {
+        resolve(addr % 2 === 0);
+      }, 10);
+    });
+  },
+  setRegister: function (addr, value, unitID) {
+    // Asynchronous handling supported also here
+    console.log("set register", addr, value, unitID);
+    return;
+  },
+  setCoil: function (addr, value, unitID) {
+    // Asynchronous handling supported also here
+    console.log("set coil", addr, value, unitID);
+    return;
+  },
+  readDeviceIdentification: function (addr) {
+    return {
+      0x00: "MyVendorName",
+      0x01: "MyProductCode",
+      0x02: "MyMajorMinorRevision",
+      0x05: "MyModelName",
+      0x97: "MyExtendedObject1",
+      0xab: "MyExtendedObject2",
+    };
+  },
+};
+
+// set the server to answer for modbus requests
+console.log("ModbusTCP listening on modbus://0.0.0.0:8502");
+// const serverTCP = new ModbusRTU.ServerTCP(vector, { host: "0.0.0.0", port: 8502, debug: true, unitID: 1 });
+const serverTCP = new ModbusRTU.ServerTCP(vector, {
+  host: "0.0.0.0",
+  port: 8502,
+  debug: true,
 });
-server.on("connection", function (client) {
-  console.log("New Connection");
-  DBH.checkDatabase();
+
+serverTCP.on("socketError", function (err) {
+  // Handle socket error if needed, can be ignored
+  console.error(err);
 });
 
-server.on("preReadHoldingRegisters", function (request, cb) {
-  console.log("preReadHoldingRegisters");
-  server.emit("readHoldingRegisters", request, cb);
-  console.log(request.address); // slaveID
-  console.log(request.body); // { _fc: 3, _start: 100, _count: 10 }
-  console.log(request.byteCount); // request의 byte 카운트
-  console.log(request.slaveId); // slaveID
-  console.log(request.unitId); // slaveID
-  console.log(cb);
+function arrayBufferToUint16Array(arr) {
+  // 전처리를 위해 단위를 쪼개준다. DataView로는 데이터 조작 어려움
+  let arr8 = new Uint8Array(arr); // treat buffer as a sequence of 32-bit integers
 
-  // server.holding.writeInt16BE(0x0101, 0);
-  console.log(server.holding.buffer);
-});
+  // big endian으로 변환해서 받기 위해 앞뒤 순서를 바꿔준다.
+  for (let i = 0; i < arr8.length; i += 2) {
+    let tmp = arr8[i];
+    arr8[i] = arr8[i + 1];
+    arr8[i + 1] = tmp;
+  }
 
-server.on("readHoldingRegisters", function (request, response, send) {
-  /* Implement your own */
-  console.log("readHoldeing!!!!!");
-  console.log(server.holding.buffer);
-
-  // console.log("readHoldeing", request);
-  // console.log("readHoldeing", response);
-
-  // console.log(response.body);
-
-  // send(response);
-});
-
-server.on("postReadHoldingRegisters", function (request, cb) {
-  console.log("postReadHoldingRegisters");
-  console.log(cb);
-  server.holding.writeInt16BE(0x0101, 0);
-
-  // console.log(request);
-  // console.log(response);
-
-  // client
-  //   .readHoldingRegisters(0, 10)
-  //   .then(function (resp) {
-  //     console.log("client");
-  //     console.log(resp.response._body.valuesAsArray);
-  //     socket.end();
-  //   })
-  //   .catch(function () {
-  //     console.error(
-  //       require("util").inspect(arguments, {
-  //         depth: null,
-  //       })
-  //     );
-  //     socket.end();
-  //   });
-});
-
-server.on("preWriteSingleRegister", function (value, address) {
-  console.log("preWriteSingleRegister");
-  console.log(value.address); // slaveId
-  console.log(value.body); //  { _fc: 6, _address: 1, _value: 1 }
-
-  // console.log('Original {register, value}: {', address, ',', server.holding.readUInt16BE(address), '}')
-});
-
-server.on("WriteSingleRegister", function (value, address) {
-  console.log("WriteSingleRegister" + value);
-  // console.log('New {register, value}: {', address, ',', server.holding.readUInt16BE(address), '}')
-});
-
-server.on("writeMultipleCoils", function (value) {
-  console.log("Write multiple coils - Existing: ", value);
-});
-
-server.on("postWriteMultipleCoils", function (value) {
-  console.log("Write multiple coils - Complete: ", value);
-});
-
-/* server.on('writeMultipleRegisters', function (value) {
-    console.log('Write multiple registers - Existing: ', value)
-  }) */
-
-server.on("postWriteMultipleRegisters", function (value) {
-  console.log("Write multiple registers - Complete: ", holding.readUInt16BE(0));
-});
-
-server.on("connection", function (client) {
-  /* work with the modbus tcp client */
-});
-console.log(502);
-netServer.listen(502, "127.0.0.1"); // 포트 수신을 시작함
+  let final16 = new Uint16Array(arr8.buffer); // treat buffer as a sequence of 32-bit integers
+  console.log(final16);
+  return final16;
+}
